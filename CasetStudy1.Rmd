@@ -1,0 +1,165 @@
+---
+title: "Case Study 1 - Doing Data Sceince"
+author: "Hassan Azhar"
+date: "October 28, 2016"
+output: html_document
+---
+
+##Introduction
+
+The purpose of the case study is to evaluate the GDP vs Income provided by Federal Statistics for Education purposes. Data was collected from two different files. Cleane and mergee them to perform some specific analysis as required.
+
+###Part 1: Download the source data, clean, create tidy data for analysis
+
+Getting the data from the server.
+
+```{r}
+FEDSTATS <- read.csv("https://d396qusza40orc.cloudfront.net/getdata%2Fdata%2FEDSTATS_Country.csv", na.strings = c("", "NA"))
+GDP <-  read.csv("https://d396qusza40orc.cloudfront.net/getdata%2Fdata%2FGDP.csv", na.strings = c("", "NA"))
+```
+
+
+Loading all the required libraries
+
+```{r}
+library(plyr)
+library(ggplot2)
+
+
+
+```
+
+####Cleaning up  GDP data
+
+Analyze the columns and data types for the columns
+
+```{r}
+str(GDP)
+GDP$X.3 = as.numeric(gsub(",","",GDP$X.3)) 
+
+```
+
+Renaming the columns
+
+```{r}
+GDP.NEWNAMES <-rename(GDP, c("X"="CountryCode","Gross.domestic.product.2012" ="Ranking" ,"X.2"="Country","X.3"="GDP","X.4" = "Category"))
+```
+
+Removing the bad data 
+```{r}
+GDP.HEADER <- GDP.NEWNAMES[5:235,]
+```
+
+Droping the column with empty data
+```{r}
+GDP.DROP <- GDP.HEADER [ -c(3, 7:10) ]
+```
+
+Removing countries with no ranking
+```{r}
+GDP.DROP <- GDP.DROP[!(is.na(GDP.DROP$Ranking)), ]
+GDP.VALUES <- as.numeric(gsub(",", "", GDP.DROP$GDP))
+```
+
+Saving tidy data in new data frame
+```{r}
+GDP.CLEAN <- GDP.DROP
+```
+
+
+####Cleaning up  Federal Stats data
+
+Analyze the columns and data types for the columns
+```{r}
+str(FEDSTATS)
+```
+
+Analyze the chunks of data
+```{r}
+head(FEDSTATS,3)
+tail(FEDSTATS,3)
+```
+
+Renaming the columns
+```{r}
+FEDSTATS.NEWNAMES <-rename(FEDSTATS, c("Long.Name"= "CountryName" , "Income.Group"="IncomeGroup", "Lending.category"="LendingCategoy","Other.groups"="OtherGroups", "Currency.Unit"="Currency" ))
+```
+
+We can Keep only the columns we need (if needed)
+```{r}
+#FEDSTATS.NEWNAMES <- FEDSTATS.NEWNAMES[c("CountryCode", "CountryName", "IncomeGroup")]
+```
+
+Remove all the NA's from Income Group
+```{r}
+FEDSTATS.CLEAN<- FEDSTATS.NEWNAMES[!is.na(FEDSTATS.NEWNAMES$IncomeGroup),]
+```
+
+Merge clean Data
+```{r}
+data <- merge(FEDSTATS.CLEAN, GDP.CLEAN,by="CountryCode")
+```
+
+Number of IDs match
+```{r}
+nrow(data)
+```
+
+###Part 2: Sorting the data and 13th country in the resulting data frame
+
+Sorting data in ascending order
+```{r}
+data.ascending <-data[order(data[,34]),]
+
+```
+
+The 13th country in the resulting data frame
+```{r}
+data.ascending[13,]
+
+```
+
+###Part 3: Average GDP rankings
+
+```{r}
+AverageGDPRankingOECD <- mean(which(data$IncomeGroup =="High income: OECD"),)
+message("Average GDP rankings for the High income: OECD: ", AverageGDPRankingOECD)
+AverageGDPRankingnonOECD <- mean(which(data$IncomeGroup =="High income: nonOECD"),)
+message("Average GDP rankings for the High income: non OECD: ", AverageGDPRankingnonOECD)
+
+
+```
+
+###Part 4: GDP Plots
+
+Creating a GDP Plot by Income Group
+
+```{r}
+GDPPLOT<-ggplot(data,aes(x=factor(data$IncomeGroup), y=data$GDP, fill=factor(data$IncomeGroup)))+ geom_bar(width=.5,stat="identity", position=position_dodge())+xlab("Income Group")+ylab("GDP")+labs(fill="Income Group")
+GDPPLOT
+
+```
+
+###Part 5: GDP ranking into 5 separate quantile groups
+
+Cut the GDP ranking into 5 separate quantile groups
+
+```{r}
+data.ascending$Ranking<- as.numeric(gsub(",","",data.ascending$Ranking)) 
+Quantiles<- cut(data.ascending$Ranking, breaks = 5)
+quant <- table(data.ascending$IncomeGroup,Quantiles)
+quant
+
+```
+
+Countries with Lower middle income but among the 38 nations with highest GDP
+
+```{r}
+data.ascending[ data.ascending$IncomeGroup == "Lower middle income" & data.ascending$Ranking <= 38,]
+
+```
+
+
+### Conclusion
+
+The analysis show that the countries with higher GDP but have a lower middle income group. 
